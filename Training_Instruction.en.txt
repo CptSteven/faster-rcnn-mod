@@ -1,0 +1,34 @@
+Training Instructions
+
+Images files can be stored anywhere. If the training set is Yunshitu's database, every image should be checked using opencv imread() to filter out invalid ones.
+
+Firstly install faster rcnn following README.MD
+We'll call the directory that you cloned Faster R-CNN into _ROOT 
+
+(1)	Enter _ROOT/data/, create a devkit directory, which will include Annotations, classes.lst, trainset.lst, testset.lst, VOCcode;
+VOCcode can be create using ln -s _ROOT/VOCcode;
+Annotations is the root directory of annotations, and xml files are grouped in the class directories in the form of:
+
+Annotations
+    |
+    |-----class0
+    |       |-----a.xml
+    |       |-----b.xml
+    |
+    |-----class1
+    |       |-----c.xml
+    |       |-----d.xml
+    |
+    |-----class2
+    |       |-----b.xml
+    |       |-----z.xml
+
+Note: 'filepath' in xml files are be either absolute or relative. In the latter case, 
+'classes.lst' is the text file each line of which is a class to train on excluding _background.
+'trainset.lst' is the text file each line of which is a xml file path to use for training,relative to Annotations, e.g. class0/a.xml. 'testset.lst', similar to 'trainset.lst', is the data for validation in the 'test' stage.
+
+(2)	Edit _ROOT/lib/dataset/factory.py, add '__set["KEY"]=(lambda data=NAME,devkit=DPATH:pascal(NAME,DPATH)), __set["KEYT"]=(lambda data=NAME,devkit=DPATH:pascal('test',DPATH,'testset.lst')). KEY is used in the training script; NAME is the datasetname. These 2 are arbitrary. DPATH is the devkit path. Note, if the 'filepath' in the xml files are relative, Construction of pascal() should be like this: pascal(NAME,DPATH,IMDIR), _set['imagenet'] is an example.
+
+(3)	Copy and modify _ROOT/experiments/script/train_cls24.sh, replace --imdb with your own KEY in (2).
+
+(4)	After the training, caffemodel will be in _ROOT/output/NAME/

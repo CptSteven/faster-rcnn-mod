@@ -1,0 +1,39 @@
+		新建训练
+原始图像文件位置不限制，但建议放在/data/disk2/下，确认xml文件的filename路径无误(之前filename多了../../前缀，要删去, 部分原始图像可能不能正常打打开，需要用opencv imread() 逐个确认，过滤掉无效的图像)
+
+先按README.MD安装
+记faster-rcnn路径为_ROOT
+
+1.	在_ROOT/data/下建立devkit目录，其中包含Annotations, classes.lst, trainset.lst, testset.lst, VOCcode; 
+VOCcode可以使用符号连接ln –s _ROOT/VOCcode
+Annotations 为xml标注文件的根目录；
+
+Annotations
+    |
+    |-----class0
+    |       |-----a.xml
+    |       |-----b.xml
+    |
+    |-----class1
+    |       |-----c.xml
+    |       |-----d.xml
+    |
+    |-----class2
+    |       |-----b.xml
+    |       |-----z.xml
+
+classes.lst每行是一个待训练类别名, 不包含_background；
+trainset.lst 和 testset.lst为训练、验证集，每行为一个xml文件相对路径, 例如dress/0001.xml
+_ROOT/data/cls24可作为参考。
+
+2.	在_ROOT/lib/dataset/factory.py 文件中添加__set["KEY"] = (lambda data =NAME ,devkit =DPATH :pascal(NAME,DPATH));  __set["KEYT"] = (lambda data = NAME,devkit = DPATH:pascal('test',DPATH,’testset.lst’)
+name任取，dpath为上一步中建立的devkit路径
+字典键值任取，用作训练脚本的参数。
+
+3.	修改_ROOT/experiment/script/train_cls24.sh文件，--imdb 参数改为上一步中定义的key，在_ROOT目录中运行该脚本开始训练
+
+4.	训练好的模型在_ROOT/output/imdbname下
+
+5.	_ROOT/tools/mydemo.py可以输出检测结果(可能有bug)
+附：如果要把pascalvoc的数据和我们自己的数据一起训练，可以在devkit 下建立符号连接指向_ROOT/data/cls24/JPEGImage, 并把_ROOT/data/cls24/Annotations文件夹下的子目录复制到devkit/Annotations/。
+
