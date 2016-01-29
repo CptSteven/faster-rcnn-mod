@@ -32,7 +32,7 @@ ap_auc = 0;
 do_eval = (str2num(year) <= 2007) | ~strcmp(test_set, 'test');
 if do_eval
   % Bug in VOCevaldet requires that tic has been called first
-  tic;
+  tic%debug;
   [recall, prec, ap] = VOCevaldet(VOCopts, comp_id, cls, true);
   ap_auc = xVOCap(recall, prec);
 

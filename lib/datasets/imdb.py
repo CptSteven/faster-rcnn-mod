@@ -99,18 +99,27 @@ class imdb(object):
         num_images = self.num_images
         widths = [PIL.Image.open(self.image_path_at(i)).size[0]
                   for i in xrange(num_images)]
+        #c = 0
         for i in xrange(num_images):
             boxes = self.roidb[i]['boxes'].copy()
             oldx1 = boxes[:, 0].copy()
             oldx2 = boxes[:, 2].copy()
             boxes[:, 0] = widths[i] - oldx2 - 1
             boxes[:, 2] = widths[i] - oldx1 - 1
+            #if True:#not  (boxes[:, 2] >= boxes[:, 0]).all():
+            #    c += 1
+            #    print self.image_path_at(i)
+            #    print oldx1,oldx2,boxes[:,0],boxes[:,2],"\n"
+            if not (boxes[:, 2] >= boxes[:, 0]).all():
+                print boxes
+                print self._image_index[i]
             assert (boxes[:, 2] >= boxes[:, 0]).all()
             entry = {'boxes' : boxes,
                      'gt_overlaps' : self.roidb[i]['gt_overlaps'],
                      'gt_classes' : self.roidb[i]['gt_classes'],
                      'flipped' : True}
             self.roidb.append(entry)
+	#assert c == 0
         self._image_index = self._image_index * 2
 
     def evaluate_recall(self, candidate_boxes=None, ar_thresh=0.5):

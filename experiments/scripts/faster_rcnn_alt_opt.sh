@@ -37,6 +37,6 @@ set -x
 time ./tools/test_net.py --gpu ${GPU_ID} \
   --def models/${NET}/faster_rcnn_alt_opt/faster_rcnn_test.pt \
   --net ${NET_FINAL} \
-  --imdb voc_2007_test \
+  --imdb voc_2007_trainval \
   --cfg experiments/cfgs/faster_rcnn_alt_opt.yml \
   ${EXTRA_ARGS}

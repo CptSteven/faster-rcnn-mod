@@ -3,12 +3,18 @@
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
+
+# Modified by Steven to suit an ImageNet-style dataset. Main 
+# lie in __init__ where _classes are read from classfile and 
+# in _load_annotations where object is check whether it within
+# the classfile, plus some other minor changes.
 # --------------------------------------------------------
 
 import datasets
 import datasets.pascal_voc
 import os
 import datasets.imdb
+import xml
 import xml.dom.minidom as minidom
 import numpy as np
 import scipy.sparse
@@ -18,27 +24,38 @@ import cPickle
 import subprocess
 
 class pascal_voc(datasets.imdb):
-    def __init__(self, image_set, year, devkit_path=None):
-        datasets.imdb.__init__(self, 'voc_' + year + '_' + image_set)
-        self._year = year
+    def __init__(self, image_set, devkit_path, imdir=None, listfile_path=None, clsfile=None):
+        datasets.imdb.__init__(self, image_set)
+        #self._year = year
+        #import pdb
+        #pdb.set_trace()
         self._image_set = image_set
         self._devkit_path = self._get_default_path() if devkit_path is None \
                             else devkit_path
-        self._data_path = os.path.join(self._devkit_path, 'VOC' + self._year)
-        self._classes = ('__background__', # always index 0
-                         'aeroplane', 'bicycle', 'bird', 'boat',
-                         'bottle', 'bus', 'car', 'cat', 'chair',
-                         'cow', 'diningtable', 'dog', 'horse',
-                         'motorbike', 'person', 'pottedplant',
-                         'sheep', 'sofa', 'train', 'tvmonitor')
+        self._data_path = imdir#os.path.join(self._devkit_path, 'Images')
+        self._anno_path = os.path.join(self._devkit_path, "Annotations")        
+        if listfile_path == None:
+            self._image_set_file = os.path.join(self._devkit_path, "trainset.lst")
+        else:
+            self._image_set_file = listfile_path
+        if clsfile == None:
+            self._cls_path = os.path.join(self._devkit_path, "classes.lst")
+        else:
+            self._cls_path = clsfile
+        with open(self._cls_path) as fcls:
+            #class set, more robust
+            cls_list = [line.strip() for line in fcls if line.strip()]
+        self._classes = ['__background__'] + cls_list
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
-        self._image_ext = '.jpg'
+        #self._image_ext = '.jpg'	#to-be-modified, ext should be configurable
         self._image_index = self._load_image_set_index()
         # Default to roidb handler
         self._roidb_handler = self.selective_search_roidb
+        #currently use dev-mode
+        self._image_dir = os.path.join(self._devkit_path, "Images")
 
         # PASCAL specific config options
-        self.config = {'cleanup'  : True,
+        self.config = {'cleanup'  : False, #Mod True,
                        'use_salt' : True,
                        'top_k'    : 2000,
                        'use_diff' : False,
@@ -46,8 +63,8 @@ class pascal_voc(datasets.imdb):
 
         assert os.path.exists(self._devkit_path), \
                 'VOCdevkit path does not exist: {}'.format(self._devkit_path)
-        assert os.path.exists(self._data_path), \
-                'Path does not exist: {}'.format(self._data_path)
+        #assert os.path.exists(self._data_path), \
+        #        'Path does not exist: {}'.format(self._data_path)
 
     def image_path_at(self, i):
         """
@@ -58,11 +75,24 @@ class pascal_voc(datasets.imdb):
     def image_path_from_index(self, index):
         """
         Construct an image path from the image's "index" identifier.
+        index in the form of class-dir/filename.xml. Read image path
+        from the xml file to ensure correctness and generalization
         """
-        image_path = os.path.join(self._data_path, 'JPEGImages',
-                                  index + self._image_ext)
+        xml_path = os.path.join(self._anno_path, index)
+        try:
+            dom = minidom.parse(xml_path)
+        except (EnvironmentError, xml.parsers.expat.ExpatError) as err:
+            print 'import error:{}'.format(err)
+            exit(1)
+        #foldername = dom.getElementsByTagName("folder")[0].childNodes[0].data
+        #filename = dom.getElementsByTagName("filename")[0].childNodes[0].data
+        filepath = dom.getElementsByTagName("filepath")[0].childNodes[0].data
+        if self._data_path is not None:
+            image_path = os.path.join(self._data_path, filepath)#self._devkit_path, filepath)
+        else:
+            image_path = filepath
         assert os.path.exists(image_path), \
-                'Path does not exist: {}'.format(image_path)
+                'Path does not exist: {}\n{}'.format(image_path,self._data_path)
         return image_path
 
     def _load_image_set_index(self):
@@ -71,12 +101,13 @@ class pascal_voc(datasets.imdb):
         """
         # Example path to image set file:
         # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
-        image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
-                                      self._image_set + '.txt')
-        assert os.path.exists(image_set_file), \
-                'Path does not exist: {}'.format(image_set_file)
-        with open(image_set_file) as f:
-            image_index = [x.strip() for x in f.readlines()]
+        #image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
+        #                              self._image_set + '.txt')
+        assert os.path.exists(self._image_set_file), \
+                'Path does not exist: {}'.format(self._image_set_file)
+        with open(self._image_set_file) as f:
+            image_index = [x.strip() for x in f.readlines() 
+                           if x.strip() and x.strip().rsplit(".",1)[-1] == "xml"]
         return image_index
 
     def _get_default_path(self):
@@ -106,6 +137,7 @@ class pascal_voc(datasets.imdb):
 
         return gt_roidb
 
+    #seems not necessary in faster rcnn, to comment
     def selective_search_roidb(self):
         """
         Return the database of selective search regions of interest.
@@ -135,7 +167,7 @@ class pascal_voc(datasets.imdb):
         return roidb
 
     def rpn_roidb(self):
-        if int(self._year) == 2007 or self._image_set != 'test':
+        if  self._image_set != 'test':		#to-be-decided testset name
             gt_roidb = self.gt_roidb()
             rpn_roidb = self._load_rpn_roidb(gt_roidb)
             roidb = datasets.imdb.merge_roidbs(gt_roidb, rpn_roidb)
@@ -153,26 +185,26 @@ class pascal_voc(datasets.imdb):
             box_list = cPickle.load(f)
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
-    def _load_selective_search_roidb(self, gt_roidb):
-        filename = os.path.abspath(os.path.join(self.cache_path, '..',
-                                                'selective_search_data',
-                                                self.name + '.mat'))
-        assert os.path.exists(filename), \
-               'Selective search data not found at: {}'.format(filename)
-        raw_data = sio.loadmat(filename)['boxes'].ravel()
-
-        box_list = []
-        for i in xrange(raw_data.shape[0]):
-            box_list.append(raw_data[i][:, (1, 0, 3, 2)] - 1)
-
-        return self.create_roidb_from_box_list(box_list, gt_roidb)
+#    def _load_selective_search_roidb(self, gt_roidb):
+#        filename = os.path.abspath(os.path.join(self.cache_path, '..',
+#                                                'selective_search_data',
+#                                                self.name + '.mat'))
+#        assert os.path.exists(filename), \
+#               'Selective search data not found at: {}'.format(filename)
+#        raw_data = sio.loadmat(filename)['boxes'].ravel()
+#
+#        box_list = []
+#        for i in xrange(raw_data.shape[0]):
+#            box_list.append(raw_data[i][:, (1, 0, 3, 2)] - 1)
+#
+#        return self.create_roidb_from_box_list(box_list, gt_roidb)
 
     def _load_pascal_annotation(self, index):
         """
         Load image and bounding boxes info from XML file in the PASCAL VOC
         format.
         """
-        filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
+        filename = os.path.join(self._anno_path, index )
         # print 'Loading: {}'.format(filename)
         def get_data_from_tag(node, tag):
             return node.getElementsByTagName(tag)[0].childNodes[0].data
@@ -180,11 +212,15 @@ class pascal_voc(datasets.imdb):
         with open(filename) as f:
             data = minidom.parseString(f.read())
 
+        size_node = data.getElementsByTagName("size")[0]
+        width = float(get_data_from_tag(size_node, "width"))
+        height = float(get_data_from_tag(size_node, "height"))
         objs = data.getElementsByTagName('object')
         if not self.config['use_diff']:
             # Exclude the samples labeled as difficult
             non_diff_objs = [obj for obj in objs
-                             if int(get_data_from_tag(obj, 'difficult')) == 0]
+                             if  (get_data_from_tag(obj, "name") in self._classes) 
+                                  and int(get_data_from_tag(obj, 'difficult')) == 0]
             if len(non_diff_objs) != len(objs):
                 print 'Removed {} difficult objects' \
                     .format(len(objs) - len(non_diff_objs))
@@ -198,10 +234,25 @@ class pascal_voc(datasets.imdb):
         # Load object bounding boxes into a data frame.
         for ix, obj in enumerate(objs):
             # Make pixel indexes 0-based
-            x1 = float(get_data_from_tag(obj, 'xmin')) - 1
-            y1 = float(get_data_from_tag(obj, 'ymin')) - 1
-            x2 = float(get_data_from_tag(obj, 'xmax')) - 1
-            y2 = float(get_data_from_tag(obj, 'ymax')) - 1
+            x1 = float(get_data_from_tag(obj, 'xmin')) #- 1
+            y1 = float(get_data_from_tag(obj, 'ymin')) #- 1
+            x2 = float(get_data_from_tag(obj, 'xmax')) #- 1
+            y2 = float(get_data_from_tag(obj, 'ymax')) #- 1
+            #ensure valid box
+            x1 = 0 if x1<0 else (x1 if x1 <= width-1 else width - 1)
+            x2 = 0 if x2<0 else (x2 if x2 <= width-1 else width - 1)
+            y1 = 0 if y1<0 else (y1 if y1 <= width-1 else width - 1)
+            y2 = 0 if y2<0 else (y2 if y2 <= width-1 else width - 1)
+            if x1 > x2:
+                t = x1
+                x1 = x2
+                x2 = t
+            if y1 > y2:
+                t = y1
+                y1 = y2
+                y2 = t
+            #if x1> x2 or y1 > y2:
+            #    print index
             cls = self._class_to_ind[
                     str(get_data_from_tag(obj, "name")).lower().strip()]
             boxes[ix, :] = [x1, y1, x2, y2]
@@ -222,13 +273,15 @@ class pascal_voc(datasets.imdb):
             comp_id += '-{}'.format(os.getpid())
 
         # VOCdevkit/results/VOC2007/Main/comp4-44503_det_test_aeroplane.txt
-        path = os.path.join(self._devkit_path, 'results', 'VOC' + self._year,
-                            'Main', comp_id + '_')
+        path = os.path.join(self._devkit_path, 'results', 'Main')
+        if not os.path.exists(path):
+            os.makedirs(path)
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
             print 'Writing {} VOC results file'.format(cls)
-            filename = path + 'det_' + self._image_set + '_' + cls + '.txt'
+            filename = os.path.join(path, comp_id + '_'+ 'det_'
+                                    + self._image_set + '_' + cls + '.txt')
             with open(filename, 'wt') as f:
                 for im_ind, index in enumerate(self.image_index):
                     dets = all_boxes[cls_ind][im_ind]
@@ -243,8 +296,8 @@ class pascal_voc(datasets.imdb):
         return comp_id
 
     def _do_matlab_eval(self, comp_id, output_dir='output'):
-        rm_results = self.config['cleanup']
-
+        #rm_results = self.config['cleanup']
+        rm_results = False
         path = os.path.join(os.path.dirname(__file__),
                             'VOCdevkit-matlab-wrapper')
         cmd = 'cd {} && '.format(path)
