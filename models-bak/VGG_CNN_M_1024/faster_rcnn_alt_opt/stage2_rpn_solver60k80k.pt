@@ -1,9 +1,11 @@
 ##outdir
 train_net: "$/VGG_CNN_M_1024/faster_rcnn_alt_opt/stage2_rpn_train.pt"
 
+##lr
 base_lr: 0.001
 lr_policy: "step"
 gamma: 0.1
+##step3
 stepsize: 60000
 display: 20
 average_loss: 100
