@@ -17,12 +17,6 @@ import os
 ROOT_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
 
 ##devkit
-devkit = $
-
-__sets["$j"] = (lambda data = "imgnet196", devkit_path = imgdev:
-                   datasets.pascal_voc(data, devkit_path))
-__sets["imgnettest"] = (lambda data = "test", devkit_path = imgdev:
-                   datasets.pascal_voc(data, devkit_path))
 
 def get_imdb(name):
     """Get an imdb (image database) by name."""

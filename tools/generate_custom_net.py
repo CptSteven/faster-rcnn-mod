@@ -10,13 +10,13 @@ def parseArgs():
     myparser.add_argument('--out','-o')
     return myparser.parse_args()
 
+def main(ncls,outdir,steps,lr):
 
-if __name__ == '__main__':
-    args = parseArgs()
-    ncls = args.cls
-    outdir = args.out
     nbox = ncls * 4
-    cmt_tag = {"##ncls":ncls,"##nbboxpred":nbox,"##outdir":outdir}
+    cmt_tag = {"##ncls":ncls,"##nbboxpred":nbox,"##outdir":outdir,'##lr':lr}
+    for c,i in enumerate(steps):
+        key = '##step{}'.format(c+1)
+        cmt_tag[key] = i
 #    if os.path.exists('models'):
     if os.path.exists(outdir):
         print 'Outdir already exists, Please backup it.'
@@ -48,3 +48,9 @@ if __name__ == '__main__':
                     l = lines[k+1].split('$',1)
                     fout.write('{}{}{}'.format(l[0],n,l[1]))
                     k += 2
+
+if __name__ == '__main__':
+    args = parseArgs()
+    ncls = args.cls
+    outdir = args.out
+    main(ncls,outdir)

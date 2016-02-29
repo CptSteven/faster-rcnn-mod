@@ -122,6 +122,11 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # and give negatives a weight of (1 - p)
 # Set to -1.0 to use uniform example weighting
 __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
+##new config params
+__C.TRAIN.RPN_ITER1 = 80000
+__C.TRAIN.RCNN_ITER1 = 40000
+__C.TRAIN.RPN_ITER2 = 80000
+__C.TRAIN.RCNN_ITER2 = 40000
 
 
 #
