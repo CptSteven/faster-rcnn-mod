@@ -24,12 +24,12 @@ class MySQLConnection(object):
 
     def connect(self):
         try:
-            self.cxn = MySQLdb.connect(self._host, self._user, \
+            self._cxn = MySQLdb.connect(self._host, self._user, \
                                        self._passwd, self._dbname, \
                                        charset='utf8', port=3306 )
-            if not self.cxn:
+            if not self._cxn:
                 raise ConnException('Cannot connect to MySQL server.')
-            self.cursor = self.cxn.cursor()
+            self._cursor = self._cxn.cursor()
         except ConnException as e:
             print e
             return False
@@ -43,7 +43,7 @@ class MySQLConnection(object):
         return self._cursor
  
     def commit(self):
-        return self.cxn.commit()
+        return self._cxn.commit()
 
     def rollback(self):
         return NotImplemented
@@ -58,18 +58,18 @@ class MySQLConnection(object):
         affected_rows = 0
         if not many:
             if args == None:
-                affected_rows = self.cursor.execute(sql)
+                affected_rows = self._cursor.execute(sql)
             else:
-                affected_rows = self.cursor.execute(sql, args)
+                affected_rows = self._cursor.execute(sql, args)
         else:
             if args == None:
-                affected_rows = self.cursor.executemany(sql)
+                affected_rows = self._cursor.executemany(sql)
             else:
-                affected_rows = self.cursor.executemany(sql, args)
+                affected_rows = self._cursor.executemany(sql, args)
         return affected_rows
 
     def fetchAll(self):
-        return self.cursor.fetchall()
+        return self._cursor.fetchall()
 
     @property
     def host(self):
@@ -117,14 +117,14 @@ if __name__ == '__main__':
     status['trained'] = 3
     conn.connect()
     sqlstr = {}
-    sqlstr['getinst1'] = 'select * from zb_train where status = {} \
-                          order by createtime asc'.format(status['untrained'])
+    sqlstr['getinst1'] = 'select * from zb_train where id = {} \
+                          order by createtime asc'.format(11)#status['untrained'])
     #sqlstr['getinst1'] = 'select * from zb_train where status = {} \
     #                      and machine_id = {}'.format(status['untrained'],mid)
     conn.query(sqlstr['getinst1'])    
-    data = conn.fetchAll()[0]
+    data = conn.fetchAll()
+    conn.close()
 #    for i in range(len(data[0])):
 #        print data[0][i]
-    print data
+    print data[0]
 
-    conn.close()

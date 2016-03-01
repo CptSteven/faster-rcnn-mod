@@ -35,7 +35,8 @@ def parse_args():
     parser.add_argument('--gpu', dest='gpu_id',
                         help='GPU device id to use [0]',
                         default=0, type=int)
-    parser.add_argument('--net_name', dest='net_name',
+    #In order to minimize changes, 'net_name' is actually net path 
+    parser.add_argument('--net', dest='net',
                         help='network name (e.g., "ZF")',
                         default=None, type=str)
     parser.add_argument('--weights', dest='pretrained_model',
@@ -68,22 +69,22 @@ def get_roidb(imdb_name, rpn_file=None):
     roidb = get_training_roidb(imdb)
     return roidb, imdb
 
-def get_solvers(net_name):
+def get_solvers(net):
     # Faster R-CNN Alternating Optimization
     n = 'faster_rcnn_alt_opt'
     # Solver for each training stage
-    solvers = [[net_name, n, 'stage1_rpn_solver60k80k.pt'],
-               [net_name, n, 'stage1_fast_rcnn_solver30k40k.pt'],
-               [net_name, n, 'stage2_rpn_solver60k80k.pt'],
-               [net_name, n, 'stage2_fast_rcnn_solver30k40k.pt']]
-    solvers = [os.path.join(cfg.ROOT_DIR, 'models', *s) for s in solvers]
+    solvers = [[n, 'stage1_rpn_solver60k80k.pt'],
+               [n, 'stage1_fast_rcnn_solver30k40k.pt'],
+               [n, 'stage2_rpn_solver60k80k.pt'],
+               [n, 'stage2_fast_rcnn_solver30k40k.pt']]
+    solvers = [os.path.join(cfg.ROOT_DIR, net, *s) for s in solvers]
     # Iterations for each training stage
-
-    max_iters = [80000, 40000, 80000, 40000]
+    #max_iters = [14000, 14000, 14000, 14000]
+    max_iters = [cfg.TRAIN.RPN_ITER1, cfg.TRAIN.RCNN_ITER1, cfg.TRAIN.RPN_ITER2, cfg.TRAIN.RCNN_ITER2]
     # max_iters = [100, 100, 100, 100]
     # Test prototxt for the RPN
     rpn_test_prototxt = os.path.join(
-        cfg.ROOT_DIR, 'models', net_name, n, 'rpn_test.pt')
+        cfg.ROOT_DIR, net, n, 'rpn_test.pt')
     return solvers, max_iters, rpn_test_prototxt
 
 # ------------------------------------------------------------------------------
@@ -202,18 +203,17 @@ def train_fast_rcnn(queue=None, imdb_name=None, init_model=None, solver=None,
     # Send Fast R-CNN model path over the multiprocessing queue
     queue.put({'model_path': fast_rcnn_model_path})
 
-if __name__ == '__main__':
+def main():
     args = parse_args()
 
     print('Called with args:')
     print(args)
 
-    if args.cfg_file is not None:
-        cfg_from_file(args.cfg_file)
+    cfg_from_file(args.cfg_file)
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs)
-    cfg.GPU_ID = args.gpu_id
 
+    netdir,net_name = os.path.split(args.net)
     # --------------------------------------------------------------------------
     # Pycaffe doesn't reliably free GPU memory when instantiated nets are
     # discarded (e.g. "del net" in Python code). To work around this issue, each
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     # queue for communicated results between processes
     mp_queue = mp.Queue()
     # solves, iters, etc. for each training stage
-    solvers, max_iters, rpn_test_prototxt = get_solvers(args.net_name)
+    solvers, max_iters, rpn_test_prototxt = get_solvers(args.net)
 
     print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
     print 'Stage 1 RPN, init from ImageNet model'
@@ -329,8 +329,11 @@ if __name__ == '__main__':
     # Create final model (just a copy of the last stage)
     final_path = os.path.join(
             os.path.dirname(fast_rcnn_stage2_out['model_path']),
-            args.net_name + '_faster_rcnn_final.caffemodel')
+            net_name + '_faster_rcnn_final.caffemodel')
     print 'cp {} -> {}'.format(
             fast_rcnn_stage2_out['model_path'], final_path)
     shutil.copy(fast_rcnn_stage2_out['model_path'], final_path)
     print 'Final model: {}'.format(final_path)
+
+if __name__ == '__main__':
+    main()

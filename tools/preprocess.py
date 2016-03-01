@@ -73,18 +73,22 @@ def getTrainingInstance(id=None,ip=None):
     access to the database to check and return a training instance
 
     """
-    dbconn = MySQLConnection('192.168.1.90','test','test','zb-label')
+    dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
     dbconn.connect()
     sqlstr = 'select * from zb_train where id = {}'.format(id)
     #sqlstr = 'select * from zb_train where id = {} and ip={}'.format(id,ip)
     dbconn.query(sqlstr)
     data = dbconn.fetchAll()
     dbconn.close()
+    if len(data) != 1:
+        return None
+    data = data[0]
 
     status = data[15]
-    assert status = 1
+    assert status == 1
 
-    instance = TrainingInstance()[0]
+    instance = TrainingInstance()
+    instance.tid = data[0]
     instance.imdb_name = data[1]    
     instance.devkit = data[2]
     instance.rpn_iter1 = data[3]
@@ -99,6 +103,8 @@ def getTrainingInstance(id=None,ip=None):
     instance.gpu_id = data[12]
     instance.net = data[13]
     instance.pretrained_model = data[14]
+
+    instance.imdir = instance.devkit
 
     instance.steps = [instance.rpn_step1,instance.rcnn_step1,instance.rpn_step2,instance.rcnn_step2]
     instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
@@ -186,6 +192,8 @@ def main():
     ins_id = args.id
 
     instance = getTrainingInstance(ins_id)
+    assert instance != None
+
     generateCFG(instance)
     cfg_from_file(instance.cfg_file)
     if instance.set_cfgs is not None:
@@ -217,14 +225,15 @@ def main():
         print 'Error in training instance.'
         exit(1)
 
-    dbconn = MySQLConnection('192.168.1.90','test','test','zb-label')
+    dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
     dbconn.connect()
     sqlstr = 'update zb_train set status = 2 where id = {}'.format(ins_id)
     dbconn.query(sqlstr)
     dbconn.commit()
-    #os.popen('./tools/AutoTrain.py')
+
+    #start training
     os.system('experiments/scripts/train.sh')
-    #os.system('experiments/scripts/train_imagenet.sh')
+
     sqlstr = 'update zb_train set status = 3 where id = {}'.format(ins_id)
     dbconn.query(sqlstr)
     dbconn.commit()

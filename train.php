@@ -5,7 +5,7 @@ class Server
     private $serv;   
 
     public function __construct() {
-        $this->serv = new swoole_server("127.0.0.1", 9501);
+        $this->serv = new swoole_server("192.168.1.120", 8888);
         $this->serv->set(array(
             'worker_num' => 1,
             'daemonize' => false,
@@ -71,7 +71,7 @@ class Server
     */
     private function sendtagbyswoole($content){
         $client = new swoole_client(SWOOLE_SOCK_TCP, SWOOLE_SOCK_SYNC);
-        $client->connect('127.0.0.1', 9501, 0.5, 0);
+        $client->connect('127.0.0.1', 8888, 0.5, 0);
         $client->send($content);
         return $client -> close();
     } 
