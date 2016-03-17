@@ -87,10 +87,15 @@ class pascal_voc(datasets.imdb):
         #foldername = dom.getElementsByTagName("folder")[0].childNodes[0].data
         #filename = dom.getElementsByTagName("filename")[0].childNodes[0].data
         filepath = dom.getElementsByTagName("filepath")[0].childNodes[0].data
-        if self._data_path is not None:
-            image_path = os.path.join(self._data_path, filepath)#self._devkit_path, filepath)
-        else:
-            image_path = filepath
+        #if self._data_path is not None:
+        #    image_path = os.path.join(self._data_path, filepath)#self._devkit_path, filepath)
+        #else:
+        #    image_path = filepath
+
+        if filepath.strip()[0] == '/':
+	    image_path = filepath
+	else:
+	    image_path = os.path.join(self._data_path, filepath)
         assert os.path.exists(image_path), \
                 'Path does not exist: {}\n{}'.format(image_path,self._data_path)
         return image_path

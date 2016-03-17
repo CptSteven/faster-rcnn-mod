@@ -22,6 +22,8 @@ import numpy as np
 # `pip install easydict` if you don't have it
 from easydict import EasyDict as edict
 
+SHARED_DIR = '/data/disk3/faster_rcnn_train'
+
 __C = edict()
 # Consumers can get config by:
 #   from fast_rcnn_config import cfg

@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import _init_paths
 import sys,os
-from fast_rcnn.config import cfg
+from fast_rcnn.config import cfg, SHARED_DIR
 import stat
 
 def main(instance):
     fpath = os.path.join(cfg.ROOT_DIR,'experiments','scripts','train.sh') 
 
     #params
+    tid = instance.tid
     imdb = instance.imdb_name
     net = instance.net
     net_name = instance.net_name
@@ -19,9 +20,10 @@ def main(instance):
     #strings to write
     desc = '#\n#This is a machine-generated script for automatic training. \
     Do not edit it unless you are very confident and are familiar of faster-rcnn\n#\n'
-    logname = '{}_{}.txt.`date +\'%Y-%m-%d_%H-%M-%S\'`'.format(imdb, net_name)
+    #logname = '{}_{}.txt.`date +\'%Y-%m-%d_%H-%M-%S\'`'.format(imdb, net_name)
+    logname = '{}.log'.format(tid)
     #logpath = os.path.join('experiments','logs',logname)
-    logpath = os.path.join('/data/disk3/faster_rcnn_train/train_logs/',logname)
+    logpath = os.path.join(SHARED_DIR, 'train_logs', logname)
     train_cmd = './tools/train_faster_rcnn_alt_opt.py --gpu {} \\\n \
   --net {} \\\n \
   --weights {} \\\n \
