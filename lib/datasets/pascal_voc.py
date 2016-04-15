@@ -35,7 +35,10 @@ class pascal_voc(datasets.imdb):
         self._data_path = imdir#os.path.join(self._devkit_path, 'Images')
         self._anno_path = os.path.join(self._devkit_path, "Annotations")        
         if listfile_path == None:
-            self._image_set_file = os.path.join(self._devkit_path, "trainset.lst")
+            if image_set == 'test':
+                self._image_set_file = os.path.join(self._devkit_path, "testset.lst")
+            else:
+                self._image_set_file = os.path.join(self._devkit_path, "trainset.lst")
         else:
             self._image_set_file = listfile_path
         if clsfile == None:
@@ -45,7 +48,7 @@ class pascal_voc(datasets.imdb):
         with open(self._cls_path) as fcls:
             #class set, more robust
             cls_list = [line.strip() for line in fcls if line.strip()]
-        self._classes = ['__background__'] + cls_list
+        self._classes = cls_list
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
         #self._image_ext = '.jpg'	#to-be-modified, ext should be configurable
         self._image_index = self._load_image_set_index()
@@ -127,15 +130,18 @@ class pascal_voc(datasets.imdb):
 
         This function loads/saves from/to a cache file to speed up future calls.
         """
-        cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
-        if os.path.exists(cache_file):
+        ##disable cache
+        #cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
+        if False and os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
             print '{} gt roidb loaded from {}'.format(self.name, cache_file)
             return roidb
 
-        gt_roidb = [self._load_pascal_annotation(index)
+        cand_gt_roidb = [self._load_pascal_annotation(index)
                     for index in self.image_index]
+        gt_roidb = [itm for itm in cand_gt_roidb if itm != None]
+        return gt_roidb
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
         print 'wrote gt roidb to {}'.format(cache_file)
@@ -224,8 +230,7 @@ class pascal_voc(datasets.imdb):
         if not self.config['use_diff']:
             # Exclude the samples labeled as difficult
             non_diff_objs = [obj for obj in objs
-                             if  (get_data_from_tag(obj, "name") in self._classes) 
-                                  and int(get_data_from_tag(obj, 'difficult')) == 0]
+                             if int(get_data_from_tag(obj, 'difficult')) == 0]
             if len(non_diff_objs) != len(objs):
                 print 'Removed {} difficult objects' \
                     .format(len(objs) - len(non_diff_objs))
@@ -258,18 +263,27 @@ class pascal_voc(datasets.imdb):
                 y2 = t
             #if x1> x2 or y1 > y2:
             #    print index
-            cls = self._class_to_ind[
-                    str(get_data_from_tag(obj, "name")).lower().strip()]
+
+            name = str(get_data_from_tag(obj, "name")).lower().strip()
+            if not name in self._class_to_ind:
+                num_objs -= 1
+                continue
+            cls = self._class_to_ind[name]
             boxes[ix, :] = [x1, y1, x2, y2]
             gt_classes[ix] = cls
             overlaps[ix, cls] = 1.0
 
+        boxes.resize(num_objs,4)
+        gt_classes.resize(num_objs)
+        overlaps.resize(num_objs,self.num_classes)
         overlaps = scipy.sparse.csr_matrix(overlaps)
 
-        return {'boxes' : boxes,
+        if num_objs > 0:
+            return {'boxes' : boxes,
                 'gt_classes': gt_classes,
                 'gt_overlaps' : overlaps,
                 'flipped' : False}
+        return None
 
     def _write_voc_results_file(self, all_boxes):
         use_salt = self.config['use_salt']

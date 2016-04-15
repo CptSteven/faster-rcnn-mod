@@ -60,9 +60,12 @@ class TrainingInstance(object):
         return True
    
     def setDefaultNet(self):
-        self.net = 'models/VGG_CNN_M_1024'
-        self.net_name = 'VGG_CNN_M_1024'
-        self.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/VGG_CNN_M_1024.v2.caffemodel')
+        self.net = 'models/VGG16'
+        self.net_name = 'VGG16'
+        self.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/VGG16.v2.caffemodel')
+        #self.net = 'models/VGG_CNN_M_1024'
+        #self.net_name = 'VGG_CNN_M_1024'
+        #self.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/VGG_CNN_M_1024.v2.caffemodel')
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -75,72 +78,72 @@ def getTrainingInstance(tid=None,ip=None):
     access to the database to check and return a training instance
 
     """
-#    dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
-#    dbconn.connect()
-#    sqlstr = 'select * from zb_train where id = {}'.format(id)
-#    #sqlstr = 'select * from zb_train where id = {} and ip={}'.format(id,ip)
-#    dbconn.query(sqlstr)
-#    data = dbconn.fetchAll()
-#    dbconn.close()
-#    if len(data) != 1:
-#        return None
-#    data = data[0]
-#
-#    status = data[15]
-#    assert status == 1
-#
-#    instance = TrainingInstance()
-#    instance.tid = data[0]
-#    instance.imdb_name = data[1]    
-#    instance.devkit = os.path.join(SHARED_DIR, data[2])
-#    instance.rpn_iter1 = data[3]
-#    instance.rcnn_iter1 = data[4]
-#    instance.rpn_iter2 = data[5]
-#    instance.rcnn_iter2 = data[6]
-#    instance.lr = data[7]
-#    instance.rpn_step1 = data[8]
-#    instance.rcnn_step1 = data[9]
-#    instance.rpn_step2 = data[10]
-#    instance.rcnn_step2 = data[11]
-#    instance.gpu_id = data[12]
-#    instance.net = data[13]
-#    instance.pretrained_model = data[14]
-#
-#    instance.imdir = os.path.join(SHARED_DIR,'images')
-#
-#    instance.steps = [instance.rpn_step1,instance.rcnn_step1,instance.rpn_step2,instance.rcnn_step2]
-#    instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
-#
-#    instance.getClassNum()
+    dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
+    dbconn.connect()
+    sqlstr = 'select * from zb_train where id = {}'.format(tid)
+    #sqlstr = 'select * from zb_train where id = {} and ip={}'.format(id,ip)
+    dbconn.query(sqlstr)
+    data = dbconn.fetchAll()
+    dbconn.close()
+    if len(data) != 1:
+        return None
+    data = data[0]
+
+    status = data[15]
+    assert status == 1
+
+    instance = TrainingInstance()
+    instance.tid = data[0]
+    instance.imdb_name = data[1]    
+    instance.devkit = os.path.join(SHARED_DIR, data[2])
+    instance.rpn_iter1 = data[3]
+    instance.rcnn_iter1 = data[4]
+    instance.rpn_iter2 = data[5]
+    instance.rcnn_iter2 = data[6]
+    instance.lr = data[7]
+    instance.rpn_step1 = data[8]
+    instance.rcnn_step1 = data[9]
+    instance.rpn_step2 = data[10]
+    instance.rcnn_step2 = data[11]
+    instance.gpu_id = data[12]
+    instance.net = data[13]
+    instance.pretrained_model = data[14]
+
+    instance.imdir = os.path.join(SHARED_DIR,'images')
+
+    instance.steps = [instance.rpn_step1,instance.rcnn_step1,instance.rpn_step2,instance.rcnn_step2]
+    instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
+
+    instance.getClassNum()
 
 #"""
 #Test mode, set training instance manully
 #"""
-    instance = TrainingInstance()
-    instance.tid = tid
-    instance.imdb_name = 'pacoco'
-    instance.devkit = os.path.join(cfg.ROOT_DIR,'data/pacoco')
-    #if use relative image path , uncomment
-    instance.imdir = instance.devkit
-    instance.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/VGG_CNN_M_1024.v2.caffemodel')
-# cfg file will not be changed in the foreseeable future
-    #instance.net = os.path.join(cfg.ROOT_DIR, 'models21/VGG_CNN_M_1024')
-    #instance.net_name = instance.net.rsplit('/',1)[-1]
-    instance.rpn_iter1 = 80000
-    instance.rcnn_iter1 = 40000
-    instance.rpn_iter2 = 80000
-    instance.rcnn_iter2 = 40000
-    instance.lr = 0.001
-    instance.gpu_id = 0
-    instance.set_cfgs = None
-
-    instance.rpn_step1 = 60000
-    instance.rcnn_step1 = 30000
-    instance.rpn_step2 = 60000
-    instance.rcnn_step2 = 30000
-    instance.steps = [instance.rpn_step1,instance.rcnn_step1,instance.rpn_step2,instance.rcnn_step2]
-    instance.getClassNum()
-    instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
+#    instance = TrainingInstance()
+#    instance.tid = tid
+#    instance.imdb_name = 'pacoco'
+#    instance.devkit = os.path.join(cfg.ROOT_DIR,'data/pacoco')
+#    #if use relative image path , uncomment
+#    instance.imdir = instance.devkit
+#    instance.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/VGG_CNN_M_1024.v2.caffemodel')
+## cfg file will not be changed in the foreseeable future
+#    #instance.net = os.path.join(cfg.ROOT_DIR, 'models21/VGG_CNN_M_1024')
+#    #instance.net_name = instance.net.rsplit('/',1)[-1]
+#    instance.rpn_iter1 = 80000
+#    instance.rcnn_iter1 = 40000
+#    instance.rpn_iter2 = 80000
+#    instance.rcnn_iter2 = 40000
+#    instance.lr = 0.001
+#    instance.gpu_id = 0
+#    instance.set_cfgs = None
+#
+#    instance.rpn_step1 = 60000
+#    instance.rcnn_step1 = 30000
+#    instance.rpn_step2 = 60000
+#    instance.rcnn_step2 = 30000
+#    instance.steps = [instance.rpn_step1,instance.rcnn_step1,instance.rpn_step2,instance.rcnn_step2]
+#    instance.getClassNum()
+#    instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
 
     return instance
 
@@ -190,13 +193,13 @@ def generateVOCCode(devkit):
     
 def getAccuracy(tid):
     acc = dict()
-    logpath = os.path.join(SHARED_DIR, 'train_logs', tid+'.log')
+    logpath = os.path.join(SHARED_DIR, 'train_logs', '{}.log'.format(tid))
     with open(logpath) as fl:
 	for l in fl:
 	    if l[:3] == '!!!':
 	        name,rate = l[3:].split(':') 
 	        name = name.strip()
-                rate = rate.split()[0].strip()
+                rate = float(rate.split()[0].strip())
                 acc[name] = rate
     return acc
 
@@ -238,19 +241,27 @@ def main():
         print 'Error in training instance.'
         exit(1)
 
-    #dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
-    #dbconn.connect()
-    #sqlstr = 'update zb_train set status = 2 where id = {}'.format(ins_id)
-    #dbconn.query(sqlstr)
-    #dbconn.commit()
+    dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
+    dbconn.connect()
+    sqlstr = 'update zb_train set status = 2 where id = {}'.format(ins_id)
+    dbconn.query(sqlstr)
+    dbconn.commit()
 
     #start training
-    os.system('experiments/scripts/train.sh')
-    acc_rate = getAccuracy(ins_id)
-    #sqlstr = 'update zb_train set status = 3 , accuracy = {} where id = {}'.format(json.dumps(acc_rate), ins_id)
-    #dbconn.query(sqlstr)
-    #dbconn.commit()
-    #dbconn.close()
+    try:
+        os.system('experiments/scripts/train.sh')
+        acc_rate = getAccuracy(ins_id)
+        acc_str = json.dumps(acc_rate)
+        #sqlstr = 'update zb_train set status = 3 , accuracy = {} where id = {}'.format(json.dumps(acc_str), ins_id)
+        sqlstr = 'update zb_train set status = 3 where id = {}'.format( ins_id)
+        dbconn.query(sqlstr)
+        dbconn.commit()
+        dbconn.close()
+    except:
+        sqlerrstr = 'update zb_train set status = -1 where id = {}'.format(ins_id)
+        dbconn.query(sqlstr)
+        dbconn.commit()
+        dbconn.close()
 
     print 'ok'
 
