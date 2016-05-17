@@ -12,8 +12,8 @@ import argparse
 from fast_rcnn.config import cfg, cfg_from_file, cfg_from_list, get_output_dir, SHARED_DIR
 import generate_custom_net
 import sql
+import shutil
 
-#SHARED_DIR = '/data/disk3/faster_rcnn_train'
 
 class TrainingInstance(object):
     def __init__(self):
@@ -41,6 +41,8 @@ class TrainingInstance(object):
 
     def getClassNum(self):
         clspath = os.path.join(self.devkit, 'classes.lst')
+        if not os.path.exists(clspath):
+            print clspath
         assert os.path.exists(clspath)
         with open(clspath) as fcls:
             classes = [l for l in fcls if l.strip() != '']
@@ -50,6 +52,11 @@ class TrainingInstance(object):
         self.imdb_name = newname
 
     def validate(self):
+        print '----------'
+        print self.devkit
+        print self.pretrained_model
+        print '----------'
+
         if not os.path.exists(self.devkit):
             return False
         if not os.path.exists(self.pretrained_model):
@@ -58,6 +65,9 @@ class TrainingInstance(object):
         self.netdir,self.net_name = os.path.split(self.net)
         self.getClassNum()
         return True
+
+    def setPretrainedModel(self):
+        self.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/{}.v2.caffemodel'.format(self.net_name))
    
     def setDefaultNet(self):
         self.net = 'models/VGG16'
@@ -90,7 +100,7 @@ def getTrainingInstance(tid=None,ip=None):
     data = data[0]
 
     status = data[15]
-    assert status == 1
+    assert status == 1 or status == 3
 
     instance = TrainingInstance()
     instance.tid = data[0]
@@ -115,35 +125,13 @@ def getTrainingInstance(tid=None,ip=None):
     instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
 
     instance.getClassNum()
+    if instance.net != '':
+      if instance.net[-1] == '/':
+          instance.net = instance.net[0:-1]
+      instance.netdir,instance.net_name = instance.net.rsplit('/',1)
 
-#"""
-#Test mode, set training instance manully
-#"""
-#    instance = TrainingInstance()
-#    instance.tid = tid
-#    instance.imdb_name = 'pacoco'
-#    instance.devkit = os.path.join(cfg.ROOT_DIR,'data/pacoco')
-#    #if use relative image path , uncomment
-#    instance.imdir = instance.devkit
-#    instance.pretrained_model = os.path.join(cfg.ROOT_DIR, 'data/imagenet_models/VGG_CNN_M_1024.v2.caffemodel')
-## cfg file will not be changed in the foreseeable future
-#    #instance.net = os.path.join(cfg.ROOT_DIR, 'models21/VGG_CNN_M_1024')
-#    #instance.net_name = instance.net.rsplit('/',1)[-1]
-#    instance.rpn_iter1 = 80000
-#    instance.rcnn_iter1 = 40000
-#    instance.rpn_iter2 = 80000
-#    instance.rcnn_iter2 = 40000
-#    instance.lr = 0.001
-#    instance.gpu_id = 0
-#    instance.set_cfgs = None
-#
-#    instance.rpn_step1 = 60000
-#    instance.rcnn_step1 = 30000
-#    instance.rpn_step2 = 60000
-#    instance.rcnn_step2 = 30000
-#    instance.steps = [instance.rpn_step1,instance.rcnn_step1,instance.rpn_step2,instance.rcnn_step2]
-#    instance.getClassNum()
-#    instance.cfg_file = os.path.join(instance.devkit, 'faster_rcnn_alt_opt.yml')
+    if len(instance.pretrained_model) == 0:
+        instance.setPretrainedModel()
 
     return instance
 
@@ -176,6 +164,7 @@ def generateCFG(instance):
     with open(instance.cfg_file,'w') as fp:
         fp.write('EXP_DIR: faster_rcnn_alt_opt\n')
         fp.write('GPU_ID: {}\n'.format(instance.gpu_id))
+        fp.write('DEVKIT_DIR: {}\n'.format(instance.devkit))
         fp.write('TRAIN:\n')
         fp.write('  BBOX_THRESH: 0.5\n')
         fp.write('  RPN_ITER1: {}\n'.format(instance.rpn_iter1))
@@ -195,10 +184,10 @@ def getAccuracy(tid):
     acc = dict()
     logpath = os.path.join(SHARED_DIR, 'train_logs', '{}.log'.format(tid))
     with open(logpath) as fl:
-	for l in fl:
-	    if l[:3] == '!!!':
-	        name,rate = l[3:].split(':') 
-	        name = name.strip()
+        for l in fl:
+            if l[:3] == '!!!':
+                name,rate = l[3:].split(':') 
+                name = name.strip()
                 rate = float(rate.split()[0].strip())
                 acc[name] = rate
     return acc
@@ -219,13 +208,23 @@ def main():
 
     if instance.net == '': 
         instance.setDefaultNet()
-        models_path = os.path.join(cfg.ROOT_DIR, 'models')
-        if True or os.path.exists(models_path):
+        models_path = os.path.join(instance.devkit, 'models')
+        if os.path.exists(models_path):
             os.popen('rm -rf {}'.format(models_path))
-        generate_custom_net.main(instance.cls_num+1,'models',instance.steps,instance.lr)
+        print 'Generating model ' + models_path
+        generate_custom_net.main(instance.cls_num,models_path,instance.steps,instance.lr)
 
-    if not os.path.exists(instance.net):
-        generate_custom_net.main(instance.cls_num+1,instance.net,instance.steps,instance.lr)
+    #if not os.path.exists(instance.net):
+    #    generate_custom_net.main(instance.cls_num,instance.netdir,instance.steps,instance.lr)
+
+    #copy net_def to devkit
+    net_src = os.path.join(instance.devkit,instance.net, "faster_rcnn_alt_opt", \
+                           "faster_rcnn_test.pt")
+    net_dst = os.path.join(instance.devkit, "results")
+    if (not os.path.exists(net_dst)):
+        os.makedirs(net_dst)
+    print 'Copying {} to {}'.format(net_src, net_dst)
+    shutil.copy(net_src, net_dst)
 
     #generate factory.py
     generateFactory(instance)
@@ -246,6 +245,7 @@ def main():
     sqlstr = 'update zb_train set status = 2 where id = {}'.format(ins_id)
     dbconn.query(sqlstr)
     dbconn.commit()
+    dbconn.close()
 
     #start training
     try:
@@ -253,21 +253,31 @@ def main():
         acc_rate = getAccuracy(ins_id)
         acc_str = json.dumps(acc_rate)
         #sqlstr = 'update zb_train set status = 3 , accuracy = {} where id = {}'.format(json.dumps(acc_str), ins_id)
+        #prev dbconn may be time-out and closed by the server.
         sqlstr = 'update zb_train set status = 3 where id = {}'.format( ins_id)
+        dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
+        dbconn.connect()
         dbconn.query(sqlstr)
         dbconn.commit()
         dbconn.close()
-    except:
+    except Exception,e:
         sqlerrstr = 'update zb_train set status = -1 where id = {}'.format(ins_id)
+        dbconn = sql.MySQLConnection('192.168.1.90','test','test','zb_label')
+        dbconn.connect()
         dbconn.query(sqlstr)
         dbconn.commit()
         dbconn.close()
+        print e
 
     print 'ok'
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception,e:
+        print e
+        exit()
 
     #os.system('experiments/scripts/train_pascal.sh 0 VGG_CNN_M_1024')
     #os.system(r'time ./tools/train_faster_rcnn_alt_opt.py --gpu 0 --net_name VGG_CNN_M_1024 --weights data/imagenet_models/VGG_CNN_M_1024.v2.caffemodel --imdb pascal --cfg experiments/cfgs/faster_rcnn_alt_opt.yml')

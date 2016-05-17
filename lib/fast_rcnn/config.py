@@ -204,6 +204,9 @@ __C.USE_GPU_NMS = True
 # Default GPU device id
 __C.GPU_ID = 0
 
+#Devkit directory
+__C.DEVKIT_DIR = ''
+
 
 def get_output_dir(imdb, net):
     """Return the directory where experimental artifacts are placed.

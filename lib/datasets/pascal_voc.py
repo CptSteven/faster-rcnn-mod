@@ -68,6 +68,9 @@ class pascal_voc(datasets.imdb):
                 'VOCdevkit path does not exist: {}'.format(self._devkit_path)
         #assert os.path.exists(self._data_path), \
         #        'Path does not exist: {}'.format(self._data_path)
+        size_ratio_file_raw = os.path.join(self._devkit_path, 'size_ratio_raw.txt')
+        if os.path.exists(size_ratio_file_raw):
+            os.remove(size_ratio_file_raw)
 
     def image_path_at(self, i):
         """
@@ -87,18 +90,12 @@ class pascal_voc(datasets.imdb):
         except (EnvironmentError, xml.parsers.expat.ExpatError) as err:
             print 'import error:{}'.format(err)
             exit(1)
-        #foldername = dom.getElementsByTagName("folder")[0].childNodes[0].data
-        #filename = dom.getElementsByTagName("filename")[0].childNodes[0].data
         filepath = dom.getElementsByTagName("filepath")[0].childNodes[0].data
-        #if self._data_path is not None:
-        #    image_path = os.path.join(self._data_path, filepath)#self._devkit_path, filepath)
-        #else:
-        #    image_path = filepath
 
         if filepath.strip()[0] == '/':
-	    image_path = filepath
-	else:
-	    image_path = os.path.join(self._data_path, filepath)
+            image_path = filepath
+        else:
+            image_path = os.path.join(self._data_path, filepath)
         assert os.path.exists(image_path), \
                 'Path does not exist: {}\n{}'.format(image_path,self._data_path)
         return image_path
@@ -132,20 +129,32 @@ class pascal_voc(datasets.imdb):
         """
         ##disable cache
         #cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
-        if False and os.path.exists(cache_file):
+        if False and  os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = cPickle.load(fid)
             print '{} gt roidb loaded from {}'.format(self.name, cache_file)
             return roidb
 
         cand_gt_roidb = [self._load_pascal_annotation(index)
-                    for index in self.image_index]
+                    for index in self._image_index]
         gt_roidb = [itm for itm in cand_gt_roidb if itm != None]
+        exc = [c for c,i in enumerate(cand_gt_roidb) if i == None]
+        exc.reverse()
+        for i in exc:
+            self._image_index.pop(i)
+
+        size_ratio_file_raw = os.path.join(self._devkit_path, 'size_ratio_raw.txt')
+        with open(size_ratio_file_raw,'w') as f:
+            for ind,i in enumerate(gt_roidb):
+                for c,j in enumerate(i['boxes']):
+                    r = float(j[3]-j[1] + 1) / float(j[2]-j[0] + 1)
+                    cls = i['gt_classes'][c]
+                    f.write('{}:{}:{}:{},{},{},{}\n'.format(cls, r, self._image_index[ind], j[0],j[1],j[2],j[3]))
+
         return gt_roidb
         with open(cache_file, 'wb') as fid:
             cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
         print 'wrote gt roidb to {}'.format(cache_file)
-
         return gt_roidb
 
     #seems not necessary in faster rcnn, to comment
@@ -180,6 +189,7 @@ class pascal_voc(datasets.imdb):
     def rpn_roidb(self):
         if  self._image_set != 'test':		#to-be-decided testset name
             gt_roidb = self.gt_roidb()
+            #print "-----",len(gt_roidb),"------"
             rpn_roidb = self._load_rpn_roidb(gt_roidb)
             roidb = datasets.imdb.merge_roidbs(gt_roidb, rpn_roidb)
         else:
@@ -226,6 +236,11 @@ class pascal_voc(datasets.imdb):
         size_node = data.getElementsByTagName("size")[0]
         width = float(get_data_from_tag(size_node, "width"))
         height = float(get_data_from_tag(size_node, "height"))
+       # im_ratio = height / width
+
+       # if im_ratio < 0.25 or im_ratio > 4:
+       #     return None
+
         objs = data.getElementsByTagName('object')
         if not self.config['use_diff']:
             # Exclude the samples labeled as difficult
@@ -242,7 +257,8 @@ class pascal_voc(datasets.imdb):
         overlaps = np.zeros((num_objs, self.num_classes), dtype=np.float32)
 
         # Load object bounding boxes into a data frame.
-        for ix, obj in enumerate(objs):
+        ix = 0
+        for obj in objs:
             # Make pixel indexes 0-based
             x1 = float(get_data_from_tag(obj, 'xmin')) #- 1
             y1 = float(get_data_from_tag(obj, 'ymin')) #- 1
@@ -251,8 +267,8 @@ class pascal_voc(datasets.imdb):
             #ensure valid box
             x1 = 0 if x1<0 else (x1 if x1 <= width-1 else width - 1)
             x2 = 0 if x2<0 else (x2 if x2 <= width-1 else width - 1)
-            y1 = 0 if y1<0 else (y1 if y1 <= width-1 else width - 1)
-            y2 = 0 if y2<0 else (y2 if y2 <= width-1 else width - 1)
+            y1 = 0 if y1<0 else (y1 if y1 <= height-1 else height - 1)
+            y2 = 0 if y2<0 else (y2 if y2 <= height-1 else height - 1)
             if x1 > x2:
                 t = x1
                 x1 = x2
@@ -261,17 +277,21 @@ class pascal_voc(datasets.imdb):
                 t = y1
                 y1 = y2
                 y2 = t
-            #if x1> x2 or y1 > y2:
-            #    print index
 
             name = str(get_data_from_tag(obj, "name")).lower().strip()
             if not name in self._class_to_ind:
                 num_objs -= 1
                 continue
+            
+            #r = float(y2-y1) / float(x2-x1)
+            #if r < 0.7 or r > 1.4:
+            #    num_objs -= 1
+            #    continue
             cls = self._class_to_ind[name]
             boxes[ix, :] = [x1, y1, x2, y2]
             gt_classes[ix] = cls
             overlaps[ix, cls] = 1.0
+            ix += 1
 
         boxes.resize(num_objs,4)
         gt_classes.resize(num_objs)
